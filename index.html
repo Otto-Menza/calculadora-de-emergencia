@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calcula tu Fondo de Emergencia</title>
+    <style>
+        input {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <h1>Calcula tu Fondo de Emergencia con tyba</h1>
+    <form id="ahorroForm">
+        <label for="ingresos">Total ingresos al mes</label><br>
+        <input type="text" id="ingresos" name="ingresos" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label for="arriendo">Arriendo / Alquiler</label><br>
+        <input type="text" id="arriendo" name="arriendo" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label for="servicios">Servicios Públicos</label><br>
+        <input type="text" id="servicios" name="servicios" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label for="alimentacion">Alimentación</label><br>
+        <input type="text" id="alimentacion" name="alimentacion" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label for="transporte">Transporte</label><br>
+        <input type="text" id="transporte" name="transporte" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label for="mobil">Comunicación (mobil-internet)</label><br>
+        <input type="text" id="mobil" name="mobil" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label for="salud">Salud</label><br>
+        <input type="text" id="salud" name="salud" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label for="deudas">Deudas</label><br>
+        <input type="text" id="deudas" name="deudas" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label for="otros">Otros</label><br>
+        <input type="text" id="otros" name="otros" required oninput="formatearInput(this); actualizarRestaDisponible();"><br><br>
+
+        <label>Disponible después de gastos:</label><br>
+        <span id="restaDisponible">0</span><br><br>
+
+        <label for="ahorro">¿Cuánto puedes ahorrar al mes?</label><br>
+        <input type="text" id="ahorro" name="ahorro" required oninput="formatearInput(this);"><br>
+        <span id="mensajeError" style="color: red; display: none;">Debes colocar un valor para ahorrar.</span><br><br>
+
+        <label for="meses">Selecciona cuántos meses deseas cubrir con tu fondo de emergencia para proteger tus gastos mensuales:</label><br>
+        <select id="meses" name="meses">
+            <option value="3">3 meses</option>
+            <option value="4">4 meses</option>
+            <option value="5">5 meses</option>
+            <option value="6">6 meses</option>
+        </select><br><br>
+
+        <label for="fondoSeleccionado">Elige un fondo de inversión:</label><br>
+        <select id="fondoSeleccionado" name="fondoSeleccionado" required></select><br><br>
+
+        <button type="button" onclick="calcularFondo()">Calcular tu fondo</button>
+    </form><br>
+
+    <div id="resultados"></div>
+
+    <script>
+        let fondos = []; // Array global para almacenar los fondos
+
+        async function obtenerFondos() {
+            try {
+                const response = await fetch('https://tyba.io/api-qa/robo-advisor/portfolios/sqi?product=STARK');
+                const data = await response.json();
+
+                const fondos = {};
+
+                // Filtrar y seleccionar el fondo con mayor expectedProfitability para cada nivel de riesgo
+                data.forEach(fondo => {
+                    const riskLevel = fondo.riskLevel.toLowerCase();
+                    if (!fondos[riskLevel] || fondo.expectedProfitability > fondos[riskLevel].expectedProfitability) {
+                        fondos[riskLevel] = fondo;
+                    }
+                });
+
+                const fondoSelect = document.getElementById('fondoSeleccionado');
+
+                ['bajo', 'medio', 'alto'].forEach(nivel => {
+                    if (fondos[nivel]) {
+                        const option = document.createElement('option');
+                        option.value = fondos[nivel].expectedProfitability;
+                        option.text = `${fondos[nivel].name} (Riesgo - ${fondos[nivel].riskLevel})`;
+                        fondoSelect.appendChild(option);
+                    }
+                });
+
+
+            } catch (error) {
+                console.error('Error al obtener los fondos de inversión:', error);
+            }
+        }
+
+        // Llamada para obtener los fondos cuando la página se carga
+        obtenerFondos();
+
+        function formatNumber(number) {
+            return number.toLocaleString('es-ES');
+        }
+
+        function formatearInput(input) {
+            let value = input.value.replace(/\D/g, ''); // Remove non-digit characters
+            if (value > 999999999) {
+                value = 999999999;
+            }
+            input.value = formatNumber(Number(value));
+        }
+
+        function actualizarRestaDisponible() {
+            const ingresos = parseFloat(document.getElementById('ingresos').value.replace(/\./g, '')) || 0;
+            const arriendo = parseFloat(document.getElementById('arriendo').value.replace(/\./g, '')) || 0;
+            const servicios = parseFloat(document.getElementById('servicios').value.replace(/\./g, '')) || 0;
+            const alimentacion = parseFloat(document.getElementById('alimentacion').value.replace(/\./g, '')) || 0;
+            const transporte = parseFloat(document.getElementById('transporte').value.replace(/\./g, '')) || 0;
+            const mobil = parseFloat(document.getElementById('mobil').value.replace(/\./g, '')) || 0;
+            const salud = parseFloat(document.getElementById('salud').value.replace(/\./g, '')) || 0;
+            const deudas = parseFloat(document.getElementById('deudas').value.replace(/\./g, '')) || 0;
+            const otros = parseFloat(document.getElementById('otros').value.replace(/\./g, '')) || 0;
+
+            const totalGastos = arriendo + servicios + alimentacion + transporte + mobil + salud + deudas + otros;
+            const restaDisponible = ingresos - totalGastos;
+            document.getElementById('restaDisponible').textContent = formatNumber(restaDisponible);
+        }
+
+        function calcularFondo() {
+            const ingresos = parseFloat(document.getElementById('ingresos').value.replace(/\./g, '')) || 0;
+            const arriendo = parseFloat(document.getElementById('arriendo').value.replace(/\./g, '')) || 0;
+            const servicios = parseFloat(document.getElementById('servicios').value.replace(/\./g, '')) || 0;
+            const alimentacion = parseFloat(document.getElementById('alimentacion').value.replace(/\./g, '')) || 0;
+            const transporte = parseFloat(document.getElementById('transporte').value.replace(/\./g, '')) || 0;
+            const mobil = parseFloat(document.getElementById('mobil').value.replace(/\./g, '')) || 0;
+            const salud = parseFloat(document.getElementById('salud').value.replace(/\./g, '')) || 0;
+            const deudas = parseFloat(document.getElementById('deudas').value.replace(/\./g, '')) || 0;
+            const otros = parseFloat(document.getElementById('otros').value.replace(/\./g, '')) || 0;
+            const ahorroMes = parseFloat(document.getElementById('ahorro').value.replace(/\./g, '')) || 0;
+            const mesesSeleccionados = parseInt(document.getElementById('meses').value) || 3;
+            const fondoSeleccionado = document.getElementById('fondoSeleccionado').value;
+            const mensajeError = document.getElementById('mensajeError');
+
+            if (ahorroMes === 0) {
+                mensajeError.style.display = 'inline';
+                return;
+            } else {
+                mensajeError.style.display = 'none';
+            }
+
+            if (fondoSeleccionado === '') {
+                alert('Por favor, selecciona un fondo de inversión.');
+                return;
+            }
+
+
+            const expectedProfitability = parseFloat(document.getElementById('fondoSeleccionado').value);
+
+            const totalGastos = arriendo + servicios + alimentacion + transporte + mobil + salud + deudas + otros;
+            const cantidad = totalGastos * mesesSeleccionados;
+
+            const interesMensual = Math.pow(1 + expectedProfitability, 1 / 12) - 1;
+            let capitalMasIntereses = 0;
+
+            const mesesAhorro = Math.ceil(cantidad / ahorroMes);
+            const capitalAhorrado = mesesAhorro * ahorroMes;
+
+            const mesesAhorroInver = Math.ceil(Math.log((cantidad * interesMensual / ahorroMes) + 1) / Math.log(1 + interesMensual));
+            const capitalAhorradoInvert = mesesAhorroInver * ahorroMes;
+
+            for (let i = 0; i < mesesAhorroInver; i++) {
+                capitalMasIntereses = (capitalMasIntereses + ahorroMes) * (1 + interesMensual);
+            }
+            capitalMasIntereses = Math.trunc(capitalMasIntereses);
+
+            document.getElementById('resultados').innerHTML = `
+                <h3>Tu fondo de emergencias debería ser de: ${formatNumber(cantidad)}</h3><br>
+                <h2>Sin invertir con tyba</h2>
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Ahorro Mensual</th>
+                            <th>Meses ahorrando</th>
+                            <th>Capital total ahorrado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>$ ${formatNumber(ahorroMes)}</td>
+                            <td>${mesesAhorro}</td>
+                            <td>$ ${formatNumber(capitalAhorrado)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <h2>Al invertir con tyba</h2>
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Ahorro Mensual</th>
+                            <th>Meses ahorrando</th>
+                            <th>Capital total ahorrado</th>
+                            <th>Capital más intereses</th>
+                            <th>Interés Anual (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>$ ${formatNumber(ahorroMes)}</td>
+                            <td>${mesesAhorroInver}</td>
+                            <td>$ ${formatNumber(capitalAhorradoInvert)}</td>
+                            <td>$ ${formatNumber(capitalMasIntereses)}</td>
+                            <td>${(expectedProfitability * 100).toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => {
+                formatearInput(input);
+                actualizarRestaDisponible();
+            });
+        });
+
+        // Inicializar los fondos cuando la página cargue
+        document.addEventListener('DOMContentLoaded', fetchFondos);
+    </script>
+</body>
+</html>
